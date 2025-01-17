@@ -81,7 +81,7 @@ export default function D3Graph() {
         // 添加 Voronoi 背景层
         const voronoiGroup = svg.append('g')
           .attr('class', 'voronoi-background')
-          .attr('fill-opacity', 0.2)
+          .attr('fill-opacity', 0.8)
 
         const link = svg.append('g')
           .attr('class', 'links')
@@ -108,9 +108,8 @@ export default function D3Graph() {
         simulation.nodes(graph.nodes).on('tick', ticked)
         simulation.force('link').links(graph.links)
         console.log('[debug5]', simulation.nodes())
-       
-        function ticked() {
-          // 更新 Voronoi 背景
+
+        function updateVoronoi() {
           const groupNodes = groupSimulation.nodes()
           const delaunay = d3.Delaunay.from(
             groupNodes,
@@ -118,7 +117,7 @@ export default function D3Graph() {
             d => d.y
           )
           const voronoi = delaunay.voronoi([0, 0, width, height])
-
+        
           voronoiGroup.selectAll('path')
             .data(groupNodes)
             .join('path')
@@ -127,9 +126,38 @@ export default function D3Graph() {
               const cell = voronoi.cellPolygon(i)
               return cell ? `M${cell.join('L')}Z` : null
             })
+        }
+
+        function updateGroupPositions() {
+          // 计算每个组的平均位置
+          const groupPositions = {}
+          simulation.nodes().forEach(d => {
+            if (!groupPositions[d.group]) {
+              groupPositions[d.group] = { x: 0, y: 0, count: 0 }
+            }
+            groupPositions[d.group].x += d.x
+            groupPositions[d.group].y += d.y
+            groupPositions[d.group].count += 1
+          })
         
+          // 更新组的位置
+          groupSimulation.nodes().forEach(d => {
+            if (groupPositions[d.id]) {
+              d.x = groupPositions[d.id].x / groupPositions[d.id].count
+              d.y = groupPositions[d.id].y / groupPositions[d.id].count
+            }
+          })
+        }
+        
+       
+        function ticked() {
+
+          updateGroupPositions()
+          updateVoronoi()
+          // 更新 Voronoi 背景
           const centroids = {}
-          groupNodes.forEach(d => {
+
+          groupSimulation.nodes().forEach(d => {
             centroids[d.id] = { x: d.x, y: d.y }
           })
 
@@ -147,8 +175,8 @@ export default function D3Graph() {
               d.y = d.y * 0.95 + cy * 0.05
             }
           })
-          // update voronoi:
-          voronoi.update(simulation.nodes())
+
+          updateVoronoi()
 
           link
             .attr('x1', d => d.source.x)
@@ -163,19 +191,27 @@ export default function D3Graph() {
 
         function dragstarted(event, d) {
           if (!event.active) simulation.alphaTarget(0.3).restart()
+          if (!event.active) groupSimulation.alphaTarget(0.3).restart()
           d.fx = d.x
           d.fy = d.y
+          updateGroupPositions()
+          updateVoronoi()
         }
-
+        
         function dragged(event, d) {
           d.fx = event.x
           d.fy = event.y
+          updateGroupPositions()
+          updateVoronoi()
         }
-
+        
         function dragended(event, d) {
           if (!event.active) simulation.alphaTarget(0)
+          if (!event.active) groupSimulation.alphaTarget(0)
           d.fx = null
           d.fy = null
+          updateGroupPositions()
+          updateVoronoi()
         }
 
       })
