@@ -85,7 +85,7 @@ export default function D3Example({ width, height }) {
         tooltip.text(d.id)
         return tooltip.style("visibility", "visible");
     })
-	.on("mousemove", function(event, d){
+	.on("mousemove", function(event){
         return tooltip.style("top", (event.pageY-10)+"px").style("left",(event.pageX+10)+"px");
     })
 	.on("mouseout", function(){return tooltip.style("visibility", "hidden");});
